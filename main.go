@@ -3,20 +3,29 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
+	"net"
 	"strings"
 )
 
 const INFILE = "messages.txt"
+const NETWORK = "tcp"
+const ADDRESS = ":42069"
 
 func main() {
-	fp, err := os.Open(INFILE)
+	listener, err := net.Listen(NETWORK, ADDRESS)
 	if err != nil {
-		fmt.Printf("error: opening file %s, %v", INFILE, err)
+		fmt.Printf("error: opening port %s, %v", ADDRESS, err)
 	}
-	producer := getLinesChannel(fp)
-	for val := range producer {
-		fmt.Printf("read: %s\n", val)
+	defer listener.Close()
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Printf("error: openning incomminc connection: %v", err)
+		}
+		producer := getLinesChannel(conn)
+		for val := range producer {
+			fmt.Println(val)
+		}
 	}
 }
 
@@ -33,7 +42,7 @@ func getLinesChannel(fp io.ReadCloser) <-chan string {
 						ch <- out
 					}
 					close(ch)
-					fp.Close()
+					//fp.Close()
 					break
 				} else {
 					fmt.Printf("error: reading file: %v", err)
