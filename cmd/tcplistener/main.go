@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net"
-	"strings"
+
+	"github.com/savisitor15/go-httpfromtcp/internal/request"
 )
 
 const INFILE = "messages.txt"
@@ -20,42 +20,16 @@ func main() {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Printf("error: openning incomminc connection: %v", err)
+			fmt.Printf("error: openning incoming connection: %v", err)
 		}
-		producer := getLinesChannel(conn)
-		for val := range producer {
-			fmt.Println(val)
+		producer, err := request.RequestFromReader(conn)
+		if err != nil {
+			fmt.Printf("error: opening reader: %v", err)
 		}
-	}
-}
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %s\n", producer.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", producer.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", producer.RequestLine.HttpVersion)
 
-func getLinesChannel(fp io.ReadCloser) <-chan string {
-	var out string
-	ch := make(chan string)
-	go func(fp io.ReadCloser) {
-		for {
-			buf := make([]byte, 8)
-			n, err := fp.Read(buf)
-			if err != nil {
-				if err == io.EOF {
-					if len(out) != 0 {
-						ch <- out
-					}
-					close(ch)
-					//fp.Close()
-					break
-				} else {
-					fmt.Printf("error: reading file: %v", err)
-					break
-				}
-			}
-			parts := strings.Split(string(buf[0:n]), "\n")
-			for i := 0; i < len(parts)-1; i++ {
-				ch <- fmt.Sprintf("%s%s", out, parts[i])
-				out = ""
-			}
-			out += parts[len(parts)-1]
-		}
-	}(fp)
-	return ch
+	}
 }
