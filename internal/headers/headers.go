@@ -25,7 +25,13 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	if err != nil {
 		return 0, false, err
 	}
-	h[newHead[0]] = newHead[1]
+	_, bFound := h[newHead[0]]
+	if bFound {
+		// append
+		h[newHead[0]] = h[newHead[0]] + ", " + newHead[1]
+	} else {
+		h[newHead[0]] = newHead[1]
+	}
 	return outLen, false, nil
 }
 
