@@ -3,12 +3,11 @@ package headers
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
 const crlf = "\r\n"
-const sep = ":"
-const space = " "
 
 type Headers map[string]string
 
@@ -31,19 +30,18 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 }
 
 func headerFromString(s string) ([]string, error) {
-	// split the header
-	parts := strings.SplitN(s, sep, 2)
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid header line")
+	// Left trim first
+	s = strings.TrimLeft(s, " ")
+	re := regexp.MustCompile(`^(?P<token>[0-9A-Za-z\!\#\$\%\&\'\*\+-\.\^\_\x60\|\~]+)(:)(?P<space>\s+)(?P<value>.+)`)
+	result := make(map[string]string)
+	match := re.FindStringSubmatch(s)
+	if len(match) == 0 {
+		return nil, fmt.Errorf("invalid header token")
 	}
-	// get the key and ensure validity - space may be left trimmed but not right
-	head := strings.TrimLeft(parts[0], space)
-	if strings.HasSuffix(head, " ") {
-		return nil, fmt.Errorf("invalid header key")
+	for i, name := range re.SubexpNames() {
+		result[name] = match[i]
 	}
-	// get value, trim leading spaces
-	value := strings.TrimLeft(parts[1], space)
-	return []string{head, value}, nil
+	return []string{strings.ToLower(result["token"]), result["value"]}, nil
 }
 
 func NewHeaders() Headers {
