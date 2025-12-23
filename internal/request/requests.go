@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/savisitor15/go-httpfromtcp/internal/headers"
 )
 
 type Request struct {
 	RequestLine RequestLine
-
-	state requestState
+	Headers     headers.Headers
+	state       requestState
 }
 
 type RequestLine struct {
@@ -24,6 +26,7 @@ type requestState int
 
 const (
 	requestStateInitialized requestState = iota
+	requestStateParsingHeaders
 	requestStateDone
 )
 
@@ -126,7 +129,24 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 		r.RequestLine = *requestLine
-		r.state = requestStateDone
+		r.state = requestStateParsingHeaders
+		return n, nil
+	case requestStateParsingHeaders:
+		if r.Headers == nil {
+			r.Headers = headers.NewHeaders()
+		}
+		n, done, err := r.Headers.Parse(data)
+		if err != nil {
+			return 0, err
+		}
+		if n == 0 {
+			// more data needed
+			return 0, nil
+		}
+		if done {
+			// switch the state to done
+			r.state = requestStateDone
+		}
 		return n, nil
 	case requestStateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
