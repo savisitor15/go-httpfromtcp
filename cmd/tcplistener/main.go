@@ -34,6 +34,8 @@ func main() {
 		for token, value := range producer.Headers {
 			fmt.Printf("- %s: %s\n", token, value)
 		}
+		fmt.Println("Body:")
+		fmt.Printf("%s", producer.Body)
 
 	}
 }

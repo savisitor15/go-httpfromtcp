@@ -11,6 +11,25 @@ const crlf = "\r\n"
 
 type Headers map[string]string
 
+func (h Headers) Get(token string) (string, bool) {
+	// case in-sensitive
+	token = strings.ToLower(token)
+	value, found := h[token]
+	return value, found
+}
+
+func (h Headers) Set(key, value string) {
+	key = strings.ToLower(key)
+	v, ok := h[key]
+	if ok {
+		value = strings.Join([]string{
+			v,
+			value,
+		}, ", ")
+	}
+	h[key] = value
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	idx := bytes.Index(data, []byte(crlf))
 	if idx == -1 {
@@ -19,19 +38,13 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	outLen := idx + 2
 	if strings.HasPrefix(string(data), crlf) {
 		// blank line
-		return outLen, true, nil
+		return 2, true, nil
 	}
 	newHead, err := headerFromString(string(data[:idx]))
 	if err != nil {
 		return 0, false, err
 	}
-	_, bFound := h[newHead[0]]
-	if bFound {
-		// append
-		h[newHead[0]] = h[newHead[0]] + ", " + newHead[1]
-	} else {
-		h[newHead[0]] = newHead[1]
-	}
+	h.Set(newHead[0], newHead[1])
 	return outLen, false, nil
 }
 
