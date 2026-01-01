@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"sync/atomic"
+
+	"github.com/savisitor15/go-httpfromtcp/internal/response"
 )
 
 type Server struct {
@@ -59,10 +61,19 @@ func (s Server) listen() {
 }
 
 func (s Server) handle(conn net.Conn) {
-	const response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello World!\n"
+	// const response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello World!\n"
 	if !s.Running.Load() {
 		return
 	}
-	conn.Write([]byte(response))
+
+	// message := "Hello World!\n"
+	message := ""
+	header := response.GetDefaultHeaders(len(message))
+	err := response.WriteStatusLine(conn, response.StatusCodeOK)
+	if err != nil {
+		fmt.Printf("error writing status line: %v", err)
+	}
+	err = response.WriteHeaders(conn, header)
+	conn.Write([]byte(message))
 	defer conn.Close()
 }
