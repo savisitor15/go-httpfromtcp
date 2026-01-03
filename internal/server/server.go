@@ -1,19 +1,22 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"sync/atomic"
 
+	"github.com/savisitor15/go-httpfromtcp/internal/request"
 	"github.com/savisitor15/go-httpfromtcp/internal/response"
 )
 
 type Server struct {
 	Running  *atomic.Bool
 	listener *net.Listener
+	handler  Handler
 }
 
-func Serve(port int) (*Server, error) {
+func Serve(port int, handle Handler) (*Server, error) {
 	if port > 65535 {
 		return nil, fmt.Errorf("error: invalid port")
 	}
@@ -25,7 +28,7 @@ func Serve(port int) (*Server, error) {
 	running := atomic.Bool{}
 	running.Store(true)
 	// create the server object
-	s := Server{Running: &running, listener: &listener}
+	s := Server{Running: &running, listener: &listener, handler: handle}
 	// start the loop
 	go s.listen()
 
@@ -61,19 +64,48 @@ func (s Server) listen() {
 }
 
 func (s Server) handle(conn net.Conn) {
-	// const response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello World!\n"
+	defer conn.Close()
 	if !s.Running.Load() {
 		return
 	}
-
-	// message := "Hello World!\n"
-	message := ""
-	header := response.GetDefaultHeaders(len(message))
-	err := response.WriteStatusLine(conn, response.StatusCodeOK)
+	req, err := request.RequestFromReader(conn)
+	if err != nil {
+		// 400
+		fmt.Printf("error handling request: %v", err)
+		err = response.WriteStatusLine(conn, response.StatusCodeBadRequest)
+		if err != nil {
+			fmt.Printf("error to report error!")
+		}
+		return
+	}
+	buf := new(bytes.Buffer)
+	hErr := s.handler(buf, req)
+	if hErr.Code != response.StatusCodeOK {
+		header := response.GetDefaultHeaders(len(hErr.Message))
+		err = response.WriteStatusLine(conn, hErr.Code)
+		if err != nil {
+			fmt.Printf("error to report error status line!")
+		}
+		err = response.WriteHeaders(conn, header)
+		if err != nil {
+			fmt.Printf("error to report error headers!")
+		}
+		_, err = conn.Write([]byte(hErr.Message))
+		if err != nil {
+			fmt.Printf("error to report error message!")
+		}
+	}
+	header := response.GetDefaultHeaders(len(buf.Bytes()))
+	err = response.WriteStatusLine(conn, response.StatusCodeOK)
 	if err != nil {
 		fmt.Printf("error writing status line: %v", err)
 	}
 	err = response.WriteHeaders(conn, header)
-	conn.Write([]byte(message))
-	defer conn.Close()
+	if err != nil {
+		fmt.Printf("error writing headers: %v", err)
+	}
+	_, err = conn.Write(buf.Bytes())
+	if err != nil {
+		fmt.Printf("error writing body: %v", err)
+	}
 }
