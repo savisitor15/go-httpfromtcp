@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -15,29 +14,70 @@ import (
 
 const port = 42069
 
-func handler(w io.Writer, req *request.Request) *server.HandlerError {
-	herr := server.HandlerError{}
-	const interrpath = "/myproblem"
-	const clienterrpath = "/yourproblem"
-	const goodresp = "All good, frfr\n"
-	const cerrresp = "Your problem is not my problem\n"
-	const ierrresp = "Woopsie, my bad\n"
-	target := req.RequestLine.RequestTarget
+func handler(w *response.Writer, req *request.Request) {
+	if strings.HasSuffix(req.RequestLine.RequestTarget, "/yourproblem") {
+		handler400(w, req)
+		return
+	}
+	if strings.HasSuffix(req.RequestLine.RequestTarget, "/myproblem") {
+		handler500(w, req)
+		return
+	}
+	handler200(w, req)
+}
 
-	if strings.HasSuffix(target, clienterrpath) {
-		herr.Code = response.StatusCodeBadRequest
-		herr.Message = cerrresp
-		return &herr
-	}
-	if strings.HasSuffix(target, interrpath) {
-		herr.Code = response.StatusCodeInternal
-		herr.Message = ierrresp
-		return &herr
-	}
-	// all good?
-	herr.Code = response.StatusCodeOK
-	w.Write([]byte(goodresp))
-	return &herr
+func handler400(w *response.Writer, _ *request.Request) {
+	w.WriteStatusLine(response.StatusCodeBadRequest)
+	body := []byte(`<html>
+	<head>
+		<title>400 Bad Request</title>
+	</head>
+	<body>
+		<h1>Bad Request</h1>
+		<p>Your request honestly kinda sucked.</p>
+	</body>
+	</html>
+	`)
+	h := response.GetDefaultHeaders(len(body))
+	h.Override("Content-Type", "text/html")
+	w.WriteHeaders(h)
+	w.WriteBody(body)
+}
+
+func handler500(w *response.Writer, _ *request.Request) {
+	w.WriteStatusLine(response.StatusCodeInternal)
+	body := []byte(`<html>
+	<head>
+		<title>500 Internal Server Error</title>
+	</head>
+	<body>
+		<h1>Internal Server Error</h1>
+		<p>Okay, you know what? This one is on me.</p>
+	</body>
+	</html>
+	`)
+	h := response.GetDefaultHeaders(len(body))
+	h.Override("Content-Type", "text/html")
+	w.WriteHeaders(h)
+	w.WriteBody(body)
+}
+
+func handler200(w *response.Writer, _ *request.Request) {
+	w.WriteStatusLine(response.StatusCodeOK)
+	body := []byte(`<html>
+	<head>
+		<title>200 OK</title>
+	</head>
+	<body>
+		<h1>Success!</h1>
+		<p>Your request was an absolute banger.</p>
+	</body>
+	</html>
+	`)
+	h := response.GetDefaultHeaders(len(body))
+	h.Override("Content-Type", "text/html")
+	w.WriteHeaders(h)
+	w.WriteBody(body)
 }
 
 func main() {

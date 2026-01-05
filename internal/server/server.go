@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"sync/atomic"
@@ -15,6 +14,8 @@ type Server struct {
 	listener *net.Listener
 	handler  Handler
 }
+
+type Handler func(w *response.Writer, req *request.Request)
 
 func Serve(port int, handle Handler) (*Server, error) {
 	if port > 65535 {
@@ -68,44 +69,14 @@ func (s Server) handle(conn net.Conn) {
 	if !s.Running.Load() {
 		return
 	}
+	w := response.NewWriter(conn)
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		// 400
-		fmt.Printf("error handling request: %v", err)
-		err = response.WriteStatusLine(conn, response.StatusCodeBadRequest)
-		if err != nil {
-			fmt.Printf("error to report error!")
-		}
+		w.WriteStatusLine(response.StatusCodeBadRequest)
+		body := []byte(fmt.Sprintf("Error parsing request: %v", err))
+		w.WriteHeaders(response.GetDefaultHeaders(len(body)))
+		w.WriteBody(body)
 		return
 	}
-	buf := new(bytes.Buffer)
-	hErr := s.handler(buf, req)
-	if hErr.Code != response.StatusCodeOK {
-		header := response.GetDefaultHeaders(len(hErr.Message))
-		err = response.WriteStatusLine(conn, hErr.Code)
-		if err != nil {
-			fmt.Printf("error to report error status line!")
-		}
-		err = response.WriteHeaders(conn, header)
-		if err != nil {
-			fmt.Printf("error to report error headers!")
-		}
-		_, err = conn.Write([]byte(hErr.Message))
-		if err != nil {
-			fmt.Printf("error to report error message!")
-		}
-	}
-	header := response.GetDefaultHeaders(len(buf.Bytes()))
-	err = response.WriteStatusLine(conn, response.StatusCodeOK)
-	if err != nil {
-		fmt.Printf("error writing status line: %v", err)
-	}
-	err = response.WriteHeaders(conn, header)
-	if err != nil {
-		fmt.Printf("error writing headers: %v", err)
-	}
-	_, err = conn.Write(buf.Bytes())
-	if err != nil {
-		fmt.Printf("error writing body: %v", err)
-	}
+	s.handler(w, req)
 }

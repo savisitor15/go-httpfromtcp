@@ -12,12 +12,11 @@ import (
 )
 
 type Request struct {
-	RequestLine RequestLine
-	Headers     headers.Headers
-	Body        []byte
-
-	state          requestState
 	bodyLengthRead int
+	state          requestState
+	RequestLine    RequestLine
+	Headers        headers.Headers
+	Body           []byte
 }
 
 type RequestLine struct {

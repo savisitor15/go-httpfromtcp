@@ -48,6 +48,11 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	return outLen, false, nil
 }
 
+func (h Headers) Override(key, value string) {
+	key = strings.ToLower(key)
+	h[key] = value
+}
+
 func headerFromString(s string) ([]string, error) {
 	// Left trim first
 	s = strings.TrimLeft(s, " ")
