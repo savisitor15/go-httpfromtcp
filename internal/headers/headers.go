@@ -53,6 +53,10 @@ func (h Headers) Override(key, value string) {
 	h[key] = value
 }
 
+func (h Headers) Remove(key string) {
+	delete(h, key)
+}
+
 func headerFromString(s string) ([]string, error) {
 	// Left trim first
 	s = strings.TrimLeft(s, " ")
