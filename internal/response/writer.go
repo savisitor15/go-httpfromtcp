@@ -29,6 +29,8 @@ func WriterStatusToString(stat int) string {
 		return "Headers"
 	case int(WriterStateBody):
 		return "Body"
+	case int(WriterStateTrailers):
+		return "Trailers"
 	default:
 		return "Unknown state"
 	}
